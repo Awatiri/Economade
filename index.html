@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Economade — Pure Economics Learning Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .nav-btn {
+            background: #e2e8f0;
+            transition: all 0.2s ease;
+            border-radius: 0.5rem;
+        }
+        .nav-btn:hover, .nav-btn.active {
+            background: #6366f1;
+            color: white;
+        }
+        .card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-2px); }
+        canvas {
+            background: #f1f5f9;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+        .locked {
+            filter: grayscale(1) opacity(0.6);
+            cursor: not-allowed;
+        }
+        .achievement-badge {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .formula-card {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .formula-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+        }
+        .formula-content {
+            display: none;
+            padding: 1rem;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            border-radius: 0 0 0.75rem 0.75rem;
+        }
+        .formula-content.active {
+            display: block;
+        }
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge.supported { background: #dcfce7; color: #166534; }
+        .badge.rejected { background: #fee2e2; color: #991b1b; }
+        .badge.neutral { background: #e0e7ff; color: #3730a3; }
+    </style>
+</head>
+<body class="p-4 md:p-6 bg-gray-50 min-h-screen">
+
+    <!-- App Container -->
+    <div id="app" class="max-w-6xl mx-auto">
+
+        <!-- Header -->
+        <header class="bg-white rounded-xl p-4 md:p-6 shadow-sm mb-6 flex flex-col md:flex-row justify-between items-center">
+            <div>
+				<span class="inline-flex items-center">
+				  <img src="images/Economade.png" alt="Logo" class="mr-2" style="width: 30px;">
+				  <h1 class="text-4xl font-bold text-indigo-600">Economade</h1>
+				</span>
+                <p class="text-gray-500">Master economics through interactive play.</p>
+            </div>
+            <div class="flex flex-wrap gap-3 mt-3 md:mt-0">
+                <div class="bg-gray-100 px-4 py-2 rounded-lg">
+                    <span class="text-gray-500">Tokens:</span>
+                    <span id="token-count" class="font-bold text-green-600">0</span>
+                </div>
+                <div class="bg-gray-100 px-4 py-2 rounded-lg">
+                    <span class="text-gray-500">Level:</span>
+                    <span id="user-level" class="font-bold text-indigo-600">Novice</span>
+                </div>
+                <div class="bg-gray-100 px-4 py-2 rounded-lg">
+                    <span class="text-gray-500">Modules:</span>
+                    <span id="modules-completed" class="font-bold text-purple-600">0/5</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="flex flex-wrap gap-2 justify-center mb-8">
+            <button class="nav-btn px-4 py-2" data-view="dashboard">Dashboard</button>
+            <button class="nav-btn px-4 py-2" data-view="simulator">Simulator</button>
+            <button class="nav-btn px-4 py-2" data-view="lessons">Lessons</button>
+            <button class="nav-btn px-4 py-2" data-view="formulas">Formulas</button>
+            <button class="nav-btn px-4 py-2" data-view="forum">Forum</button>
+        </nav>
+
+        <!-- Main Content -->
+        <main id="main-content" class="min-h-96">
+            <!-- Content injected by JS -->
+        </main>
+
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-3xl w-full p-6 md:p-8 relative">
+            <button id="close-modal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 id="modal-title" class="text-2xl font-bold text-indigo-600 mb-4"></h2>
+            <div id="modal-content" class="prose max-w-none"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============ CORE STATE ============
+        const state = {
+            userId: 'guest-' + Math.random().toString(36).substr(2, 9),
+            level: 'Novice',
+            tokens: 0,
+            streak: 0,
+            modulesCompleted: 0,
+            currentView: 'dashboard',
+            lessonsCompleted: new Set(),
+            formulasViewed: new Set(),
+            forumPosts: []
+        };
+
+        // ============ ECONOMICS MODULES ============
+        const econModules = [
+            { id: 'scarcity', title: '1. Scarcity & Choice', unlocked: true, completed: false },
+            { id: 'supply-demand', title: '2. Supply & Demand', unlocked: false, completed: false },
+            { id: 'elasticity', title: '3. Elasticity', unlocked: false, completed: false },
+            { id: 'equilibrium', title: '4. Market Equilibrium', unlocked: false, completed: false },
+            { id: 'taxes', title: '5. Taxes & Subsidies', unlocked: false, completed: false }
+        ];
+
+        // ============ FORMULAS ============
+        const formulas = [
+            {
+                id: 'law-of-demand',
+                title: '📉 Law of Demand',
+                formula: 'Conceptual — No Formula',
+                explanation: 'As price ↑, quantity demanded ↓ (movement along the demand curve).',
+                example: 'When coffee price rises from 30¢ to 40¢ per cup, you buy 5 cups/day → 2 cups/day. This is a movement along your personal demand curve.'
+            },
+            {
+                id: 'law-of-supply',
+                title: '📈 Law of Supply',
+                formula: 'Conceptual — No Formula',
+                explanation: 'As price ↑, quantity supplied ↑ (movement along the supply curve).',
+                example: 'When corn price rises from $3 to $4/bushel, a farmer supplies 200 → 300 bushels. This is a movement along the supply curve.'
+            },
+            {
+                id: 'equilibrium',
+                title: '⚖️ Market Equilibrium',
+                formula: 'Qd = Qs',
+                explanation: 'Equilibrium occurs where quantity demanded equals quantity supplied. Solve for P and Q.',
+                example: 'Demand: Qd = 100 – 20P<br>Supply: Qs = 20 + 20P<br>Set Qd = Qs:<br>100 – 20P = 20 + 20P<br>80 = 40P → <strong>P = 2</strong><br>Q = 100 – 20(2) = <strong>60</strong><br>✅ Equilibrium: P* = 2, Q* = 60'
+            },
+            {
+                id: 'elasticity-demand',
+                title: '📐 Price Elasticity of Demand (PED)',
+                formula: 'PED = (%ΔQd) / (%ΔP)',
+                explanation: 'Measures responsiveness of quantity demanded to price change.<br>• |PED| > 1 → Elastic<br>• |PED| < 1 → Inelastic<br>• |PED| = 1 → Unit Elastic',
+                example: 'Price rises 10%, quantity demanded falls 5%.<br>PED = (-5%) / (10%) = <strong>-0.5</strong> → Inelastic (ignore negative sign for interpretation).'
+            },
+            {
+                id: 'elasticity-supply',
+                title: '📐 Price Elasticity of Supply (PES)',
+                formula: 'PES = (%ΔQs) / (%ΔP)',
+                explanation: 'Measures responsiveness of quantity supplied to price change.<br>• PES > 1 → Elastic supply<br>• PES < 1 → Inelastic supply<br>• PES = 1 → Unit elastic',
+                example: 'Price rises 20%, quantity supplied rises 60%.<br>PES = (60%) / (20%) = <strong>3.0</strong> → Highly elastic supply.'
+            },
+            {
+                id: 'point-elasticity',
+                title: '📍 Elasticity on Linear Demand Curve',
+                formula: 'PED = (ΔQ / ΔP) × (P / Q)',
+                explanation: 'Calculate elasticity at a specific point on a linear demand curve.',
+                example: 'Demand: Qd = 100 – 20P (so ΔQ/ΔP = -20)<br>At P = 2, Q = 60<br>PED = (-20) × (2 / 60) = <strong>-0.67</strong> → Inelastic at this point.'
+            },
+            {
+                id: 'income-elasticity',
+                title: '📈 Engel Curve Elasticity (Income Elasticity)',
+                formula: 'Income Elasticity = (%ΔQd) / (%ΔIncome)',
+                explanation: 'Measures how demand changes with income.<br>• > 0 → Normal good<br>• < 0 → Inferior good',
+                example: 'Your income rises 10%. You buy 15% more steak → Income Elasticity = 1.5 → Normal, luxury good.<br>You buy 5% less instant noodles → Income Elasticity = -0.5 → Inferior good.'
+            },
+            {
+                id: 'tax-incidence',
+                title: '💰 Tax Incidence',
+                formula: 'Conceptual — No Formula',
+                explanation: 'The more <strong>inelastic</strong> side (demand or supply) bears more of the tax burden.',
+                example: 'Initial: Wage = $2/hr, Hours = 60<br>$1/hr tax imposed on employers.<br>New: Workers receive $1.50/hr, Employers pay $2.50/hr, Hours = 50.<br>✅ Workers bear $0.50 of tax ($2 → $1.50).<br>✅ Employers bear $0.50 of tax ($2 → $2.50).'
+            },
+            {
+                id: 'tax-buyers-vs-sellers',
+                title: '↔️ Tax on Buyers vs. Tax on Sellers',
+                formula: 'Conceptual — No Formula',
+                explanation: 'It doesn’t matter who the tax is legally imposed on — the market outcome (Pc, Ps, Q) is identical.',
+                example: '$5 tax on consumers → Demand curve shifts down by $5.<br>$5 tax on producers → Supply curve shifts up by $5.<br>✅ Same new equilibrium price and quantity in both cases.'
+            },
+            {
+                id: 'shift-vs-movement',
+                title: '🔄 Comparative Statics: Shift vs. Movement',
+                formula: 'Conceptual — No Formula',
+                explanation: '• <strong>Movement along curve</strong> = Caused by change in good’s own price.<br>• <strong>Shift of curve</strong> = Caused by income, prices of related goods, tastes, expectations, number of buyers/sellers.',
+                example: '🍵 Tea price ↑ → Demand for coffee (substitute) <strong>shifts right</strong>.<br>🥛 Cream price ↑ → Demand for coffee (complement) <strong>shifts left</strong>.<br>💰 Income ↑ → Demand for normal good (e.g., steak) <strong>shifts right</strong>.'
+            },
+            {
+                id: 'market-demand',
+                title: '➕ Market Demand (Horizontal Summation)',
+                formula: 'Qd_market = Qd₁ + Qd₂ + ... + Qdₙ',
+                explanation: 'Add quantities demanded by all consumers at each price.',
+                example: 'Consumer 1: At P=$5, buys 3 units.<br>Consumer 2: At P=$5, buys 5 units.<br>✅ Market Demand at P=$5 = 3 + 5 = <strong>8 units</strong>.'
+            },
+            {
+                id: 'tax-equilibrium',
+                title: '🧮 Solving for New Equilibrium After a Tax',
+                formula: 'New Supply: P_seller = Original Supply Price – Tax',
+                explanation: 'When tax is imposed on sellers, adjust supply equation accordingly.',
+                example: 'Original: Qd = 800 – P, Qs = 400<br>$200 tax on sellers → Sellers need P_seller = P_consumer – 200 to supply same Q.<br>New Eq: Qd = 800 – P = 200 → P = 600, then Q = 200.<br>✅ New Eq: P_consumer = 600, P_seller = 400, Q = 200.'
+            },
+            {
+                id: 'excess-demand-supply',
+                title: '📉 Excess Demand / Excess Supply',
+                formula: 'Excess Demand = Qd – Qs (if Qd > Qs)<br>Excess Supply = Qs – Qd (if Qs > Qd)',
+                explanation: 'Quantifies market imbalance at non-equilibrium prices.',
+                example: 'At P = $3: Qd = 70, Qs = 50 → Excess Demand = 20 units.<br>At P = $5: Qd = 30, Qs = 60 → Excess Supply = 30 units.'
+            },
+            {
+                id: 'midpoint-elasticity',
+                title: '📐 Midpoint Formula for Elasticity',
+                formula: '%ΔQ = (Q₂ – Q₁) / [(Q₂ + Q₁)/2]<br>%ΔP = (P₂ – P₁) / [(P₂ + P₁)/2]<br>PED = (%ΔQ) / (%ΔP)',
+                explanation: 'More accurate for large price/quantity changes. Uses average of start/end values.',
+                example: 'P₁ = $10, Q₁ = 100 → P₂ = $12, Q₂ = 80<br>%ΔQ = (80-100) / 90 = -20/90 = -0.222<br>%ΔP = (12-10) / 11 = 2/11 = 0.182<br>PED = -0.222 / 0.182 = <strong>-1.22</strong> → Elastic.'
+            },
+            {
+                id: 'subsidy-effect',
+                title: '🎁 Subsidy Effect',
+                formula: 'Conceptual — No Formula',
+                explanation: 'The more <strong>inelastic</strong> side captures more of the subsidy benefit.',
+                example: 'Govt gives $10 subsidy per textbook to students (demand side).<br>If demand is inelastic, price paid by students falls by nearly $10 → students capture most benefit.<br>If supply is inelastic, price received by publishers rises by nearly $10 → publishers capture most benefit.'
+            }
+        ];
+
+        // ============ DOM ELEMENTS ============
+        const mainContent = document.getElementById('main-content');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const closeModalBtn = document.getElementById('close-modal');
+        const tokenCountEl = document.getElementById('token-count');
+        const userLevelEl = document.getElementById('user-level');
+        const modulesCompletedEl = document.getElementById('modules-completed');
+
+        // ============ RENDERING FUNCTIONS ============
+        function renderDashboard() {
+            let completedCount = econModules.filter(m => m.completed).length;
+            let totalCount = econModules.length;
+
+            let moduleCards = econModules.map(module => {
+                let isLocked = !module.unlocked;
+                let isCompleted = module.completed;
+                let statusClass = isCompleted ? 'bg-green-100 border-green-500' : isLocked ? 'bg-gray-100 border-gray-300 locked' : 'bg-blue-50 border-blue-500';
+                let statusText = isCompleted ? 'Completed ✅' : isLocked ? 'Locked 🔒' : 'Start Learning →';
+
+                return `
+                    <div class="card p-5 border-2 ${statusClass} ${isLocked ? 'cursor-not-allowed' : ''}" 
+                         ${!isLocked ? `onclick="showModule('${module.id}')"` : ''}>
+                        <h3 class="text-xl font-bold text-gray-800 mb-1">${module.title}</h3>
+                        <div class="flex justify-between items-center mt-4">
+                            <span class="text-xs font-medium px-2 py-1 rounded-full ${isCompleted ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-600'}">
+                                ${statusText}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Your Learning Dashboard</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    ${moduleCards}
+                </div>
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-6 rounded-xl">
+                    <h3 class="text-xl font-bold mb-2">🎯 Your Progress</h3>
+                    <div class="flex flex-wrap gap-4">
+                        <div>
+                            <div class="text-sm opacity-90">Tokens Earned</div>
+                            <div class="text-2xl font-bold">${state.tokens}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm opacity-90">Level</div>
+                            <div class="text-2xl font-bold">${state.level}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm opacity-90">Modules Completed</div>
+                            <div class="text-2xl font-bold">${completedCount}/${totalCount}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSimulator() {
+            return `
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">Interactive Supply & Demand Simulator</h2>
+                <p class="text-gray-600 mb-6">Drag the curves. Watch equilibrium shift in real-time.</p>
+                <div class="bg-white p-4 rounded-xl shadow-sm">
+                    <canvas id="econ-canvas" width="800" height="500" class="w-full h-auto border"></canvas>
+                    <div id="simulator-feedback" class="mt-4 p-3 bg-gray-50 rounded-lg text-center">
+                        Drag the red (Demand) or blue (Supply) curve to see changes.
+                    </div>
+                </div>
+                <button onclick="checkEquilibriumChallenge()" class="mt-6 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
+                    Complete Challenge: Find Equilibrium → Earn 20 tokens
+                </button>
+            `;
+        }
+
+        function renderLessons() {
+            let lessonList = econModules.map(module => {
+                if (!module.unlocked) return '';
+                return `
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-indigo-600 mb-4">${module.title}</h3>
+                        <div class="space-y-4">
+                            <div class="card p-5">
+                                <h4 class="font-bold text-lg mb-2">Core Concepts</h4>
+                                <p>Interactive lesson content would go here...</p>
+                                <button onclick="completeLesson('${module.id}')" 
+                                        class="mt-4 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition">
+                                    Complete Lesson → +15 tokens
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Structured Learning Path</h2>
+                <p class="text-gray-600 mb-6">Complete modules in order. Each unlocks the next.</p>
+                ${lessonList}
+            `;
+        }
+
+        function renderFormulas() {
+            let formulaCards = formulas.map(formula => `
+                <div class="formula-card card p-5 mb-4" onclick="toggleFormula('${formula.id}')">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800 mb-1">${formula.title}</h3>
+                        </div>
+                        <span class="text-lg font-mono bg-gray-100 px-3 py-1 rounded">${formula.formula}</span>
+                    </div>
+                    <div class="formula-content mt-4" id="content-${formula.id}">
+                        <div class="prose max-w-none">
+                            <h4 class="font-semibold text-gray-700 mb-2">Explanation</h4>
+                            <p class="mb-4">${formula.explanation}</p>
+                            <h4 class="font-semibold text-gray-700 mb-2">Example</h4>
+                            <div class="bg-gray-50 p-4 rounded-lg text-sm">${formula.example}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            return `
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">📊 Formulas & Examples</h2>
+                <p class="text-gray-600 mb-6">Tap any formula to expand its explanation and example. Earn 5 tokens per formula viewed.</p>
+                <div class="space-y-4">
+                    ${formulaCards}
+                </div>
+            `;
+        }
+
+        function renderForum() {
+            let posts = state.forumPosts.map(post => `
+                <div class="card p-4 mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold text-indigo-600">${post.user}</span>
+                        <span class="text-xs text-gray-400">${new Date(post.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    <p>${post.message}</p>
+                </div>
+            `).join('');
+
+            return `
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Community Forum</h2>
+                <p class="text-gray-600 mb-6">Ask questions. Share insights. Learn together.</p>
+                
+                <div class="mb-6">
+                    <textarea id="forum-textarea" class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" 
+                              placeholder="What’s your economics question?"></textarea>
+                    <button onclick="postToForum()" class="mt-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                        Post Question
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    ${posts || '<p class="text-center text-gray-500 py-8">No posts yet. Be the first to ask a question!</p>'}
+                </div>
+            `;
+        }
+
+        // ============ CORE FUNCTIONS ============
+        function setView(view) {
+            // Update active nav button
+            document.querySelectorAll('[data-view]').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+            });
+
+            // Render view
+            let content = '';
+            switch(view) {
+                case 'dashboard': content = renderDashboard(); break;
+                case 'simulator': 
+                    content = renderSimulator(); 
+                    setTimeout(initSimulator, 100);
+                    break;
+                case 'lessons': content = renderLessons(); break;
+                case 'formulas': content = renderFormulas(); break;
+                case 'forum': content = renderForum(); break;
+                default: content = renderDashboard();
+            }
+            mainContent.innerHTML = content;
+
+            // Update state
+            state.currentView = view;
+        }
+
+        function toggleFormula(formulaId) {
+            const content = document.getElementById(`content-${formulaId}`);
+            content.classList.toggle('active');
+            
+            // Award tokens on first view
+            if (!state.formulasViewed.has(formulaId)) {
+                state.formulasViewed.add(formulaId);
+                awardTokens(5);
+                showToast(`+5 tokens! Viewed ${formulas.find(f => f.id === formulaId).title}`, 'success');
+                updateUI();
+            }
+        }
+
+        function completeLesson(moduleId) {
+            const module = econModules.find(m => m.id === moduleId);
+            if (module && !module.completed) {
+                module.completed = true;
+                state.modulesCompleted++;
+                
+                // Unlock next module
+                const currentIndex = econModules.findIndex(m => m.id === moduleId);
+                if (currentIndex < econModules.length - 1) {
+                    econModules[currentIndex + 1].unlocked = true;
+                }
+                
+                awardTokens(15);
+                showToast(`+15 tokens! Completed ${module.title}`, 'success');
+                updateUI();
+            }
+        }
+
+        function awardTokens(amount) {
+            state.tokens += amount;
+            state.streak += 1;
+            updateUI();
+        }
+
+        function updateUI() {
+            tokenCountEl.textContent = state.tokens;
+            userLevelEl.textContent = state.level;
+            modulesCompletedEl.textContent = `${econModules.filter(m => m.completed).length}/5`;
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all duration-300 ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function postToForum() {
+            const textarea = document.getElementById('forum-textarea');
+            const message = textarea.value.trim();
+            if (!message) return;
+
+            state.forumPosts.push({
+                user: state.userId.substring(0, 8),
+                message: message,
+                timestamp: new Date()
+            });
+
+            textarea.value = '';
+            if (state.currentView === 'forum') {
+                setView('forum'); // Re-render
+            }
+            showToast('Posted to forum!', 'success');
+        }
+
+        function showModule(moduleId) {
+            const module = econModules.find(m => m.id === moduleId);
+            if (!module || !module.unlocked) return;
+
+            modalTitle.textContent = module.title;
+            modalContent.innerHTML = `
+                <div class="prose">
+                    <h3 class="text-xl font-bold mb-4">📚 ${module.title}</h3>
+                    <p>Interactive content for this module would appear here...</p>
+                    <button onclick="completeLesson('${moduleId}')" 
+                            class="mt-6 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
+                        Complete Module → +15 tokens
+                    </button>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        // ============ SIMULATOR ============
+        let canvas, ctx;
+        let demandCurve = { a: 100, b: 1 };
+        let supplyCurve = { c: 20, d: 0.5 };
+        let isDragging = false;
+        let activeCurve = null;
+
+        function initSimulator() {
+            canvas = document.getElementById('econ-canvas');
+            if (!canvas) return;
+            ctx = canvas.getContext('2d');
+            
+            const resizeCanvas = () => {
+                const container = canvas.parentElement;
+                canvas.width = container.clientWidth;
+                canvas.height = 400;
+                drawGraph();
+            };
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            canvas.addEventListener('mousedown', startDrag);
+            canvas.addEventListener('mousemove', drag);
+            canvas.addEventListener('mouseup', endDrag);
+            canvas.addEventListener('mouseleave', endDrag);
+        }
+
+        function drawGraph() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 50;
+            ctx.clearRect(0, 0, w, h);
+
+            ctx.beginPath();
+            ctx.moveTo(padding, h - padding);
+            ctx.lineTo(w - padding, h - padding);
+            ctx.lineTo(w - padding - 10, h - padding - 5);
+            ctx.moveTo(w - padding, h - padding);
+            ctx.lineTo(w - padding - 10, h - padding + 5);
+            
+            ctx.moveTo(padding, h - padding);
+            ctx.lineTo(padding, padding);
+            ctx.lineTo(padding - 5, padding + 10);
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding + 5, padding + 10);
+            ctx.strokeStyle = '#333';
+            ctx.stroke();
+
+            ctx.fillStyle = '#333';
+            ctx.font = '14px Inter';
+            ctx.fillText('Quantity (Q)', w / 2, h - 15);
+            ctx.save();
+            ctx.translate(15, h / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Price (P)', 0, 0);
+            ctx.restore();
+
+            const Q_eq = (demandCurve.a - supplyCurve.c) / (supplyCurve.d + demandCurve.b);
+            const P_eq = demandCurve.a - demandCurve.b * Q_eq;
+
+            const maxQ = 150;
+            const maxP = 120;
+            const scaleX = (w - 2 * padding) / maxQ;
+            const scaleY = (h - 2 * padding) / maxP;
+
+            ctx.beginPath();
+            for (let q = 0; q <= maxQ; q += 0.5) {
+                const p = demandCurve.a - demandCurve.b * q;
+                if (p >= 0) {
+                    const x = padding + q * scaleX;
+                    const y = h - padding - p * scaleY;
+                    if (q === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+            }
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillText('D', padding + maxQ * scaleX + 5, h - padding - (demandCurve.a - demandCurve.b * maxQ) * scaleY);
+
+            ctx.beginPath();
+            for (let q = 0; q <= maxQ; q += 0.5) {
+                const p = supplyCurve.c + supplyCurve.d * q;
+                const x = padding + q * scaleX;
+                const y = h - padding - p * scaleY;
+                if (q === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillText('S', padding + maxQ * scaleX + 5, h - padding - (supplyCurve.c + supplyCurve.d * maxQ) * scaleY);
+
+            if (Q_eq >= 0 && P_eq >= 0 && Q_eq <= maxQ && P_eq <= maxP) {
+                const eqX = padding + Q_eq * scaleX;
+                const eqY = h - padding - P_eq * scaleY;
+
+                ctx.fillStyle = '#10b981';
+                ctx.beginPath();
+                ctx.arc(eqX, eqY, 6, 0, 2 * Math.PI);
+                ctx.fill();
+
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = '#666';
+                ctx.beginPath();
+                ctx.moveTo(eqX, eqY);
+                ctx.lineTo(eqX, h - padding);
+                ctx.moveTo(eqX, eqY);
+                ctx.lineTo(padding, eqY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = '#333';
+                ctx.fillText(`P* = ${P_eq.toFixed(1)}`, padding - 40, eqY);
+                ctx.fillText(`Q* = ${Q_eq.toFixed(1)}`, eqX, h - padding + 20);
+            }
+        }
+
+        function startDrag(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const w = canvas.width;
+            const padding = 50;
+
+            if (x < w / 2) {
+                activeCurve = 'demand';
+            } else {
+                activeCurve = 'supply';
+            }
+            isDragging = true;
+            document.getElementById('simulator-feedback').textContent = `Dragging ${activeCurve} curve...`;
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const h = canvas.height;
+            const padding = 50;
+            const midY = h / 2;
+
+            const delta = (y - midY) * 0.01;
+
+            if (activeCurve === 'demand') {
+                demandCurve.a = Math.max(50, Math.min(150, demandCurve.a - delta * 20));
+            } else {
+                supplyCurve.c = Math.max(0, Math.min(100, supplyCurve.c + delta * 20));
+            }
+
+            drawGraph();
+        }
+
+        function endDrag() {
+            isDragging = false;
+            activeCurve = null;
+            document.getElementById('simulator-feedback').textContent = 'Drag curves to see changes.';
+        }
+
+        function checkEquilibriumChallenge() {
+            const Q_eq = (demandCurve.a - supplyCurve.c) / (supplyCurve.d + demandCurve.b);
+            const P_eq = demandCurve.a - demandCurve.b * Q_eq;
+            
+            if (Math.abs(Q_eq - 53.3) < 5 && Math.abs(P_eq - 46.7) < 5) {
+                awardTokens(20);
+                showToast('🎉 Perfect! You found equilibrium! +20 tokens', 'success');
+            } else {
+                showToast('🔍 Keep adjusting the curves!', 'info');
+            }
+        }
+
+        // ============ INITIALIZATION ============
+        closeModalBtn.addEventListener('click', () => modal.classList.add('hidden'));
+
+        // Set up navigation
+        document.querySelectorAll('[data-view]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                setView(e.target.getAttribute('data-view'));
+            });
+        });
+
+        // Initialize
+        setView('dashboard');
+        updateUI();
+
+        // Expose functions to window
+        window.setView = setView;
+        window.toggleFormula = toggleFormula;
+        window.completeLesson = completeLesson;
+        window.postToForum = postToForum;
+        window.checkEquilibriumChallenge = checkEquilibriumChallenge;
+    </script>
+
+</body>
+</html>
